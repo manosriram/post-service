@@ -5,6 +5,7 @@ const bp = require("body-parser");
 app.use(bp.json());
 app.use(bp.urlencoded({ extended: false }));
 
+// MySQL connection
 var mysql = require("mysql");
 var connection = mysql.createConnection({
     host: "localhost",
@@ -14,6 +15,7 @@ var connection = mysql.createConnection({
 });
 connection.connect();
 
+// Redis connection
 const redis = require("redis");
 const client = redis.createClient();
 client.on("error", function(error) {
@@ -23,6 +25,7 @@ client.on("error", function(error) {
 app.get("/user/:username", (req, res) => {
     const { username } = req.params;
 
+    // Join tables to find the posts viewed by the user.
     connection.query(
         "select * from post p join viewers on p.id = viewers.postid",
         username,
@@ -39,6 +42,7 @@ app.put("/:author", (req, res) => {
         "insert into post(author) values(?)",
         author,
         (err, rows) => {
+            // Set view count of post to 0.
             client.set(rows.insertId, 0);
         }
     );
@@ -65,6 +69,7 @@ app.post("/:postid", (req, res) => {
     username = "?" + username + "/" + postid;
 
     try {
+        // If user doesn't exist in redis, add the user and insert the user into the viewer table.
         client.exists(username, (err, exists) => {
             console.log(exists);
             if (!exists) {
@@ -76,6 +81,7 @@ app.post("/:postid", (req, res) => {
             }
         });
 
+        // If the user has already viewed the post, just increment the view count.
         client.incr(postid, (err, done) => {
             if (err) console.log(err);
         });
